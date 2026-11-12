@@ -614,7 +614,7 @@ A('p_shadow','pres','Shadow sequence',['site','massing'],{month:['Month',6],h1:[
 A('p_score','pres','Scorecard chart',['result'],{},(m,p,ins)=>{const k=q=>ins.filter(i=>i.res.status===q).length;return[I('Passing',k('pass')+' of '+ins.length,k('fail')===0),I('Near a limit',k('warn')),I('To check',k('fail'))]},{out:'pres',desc:'A ring of how many connected checks pass, with the ones to look at listed.'});
 A('p_map','pres','Study map',['result'],{},(m,p,ins)=>{const q=ins.find(i=>fieldOf(i));return[I('Map',q?q.def.name:'Connect a sun, wind or rain node')].concat(q?[I('Reading',q.res.value)]:[])},{out:'pres',from:['solar','windscr','rainground','facadesun','rainface'],desc:'The map of a sun, wind or rain node, drawn in plan with its legend.'});
 A('p_board','out','Board',['pres'],{},(m,p,ins,n)=>[I('Sheet',(n.text||'').split('\n')[0]||'Board'),I('Pieces on it',ins.length)],{out:null,text:'Name of the sheet',desc:'Everything wired into a Board is laid out on its own sheet in Presentation and stays live.',act:['Open this sheet in Presentation',n=>{go('pres');const i=P.sheets.findIndex(q=>q.board===n.id);if(i>=0){S.sheet=i;ui()}}]});
-const fieldOf=i=>i.res&&i.res.out&&i.def.sw&&i.def.sw.field&&i.res.out.data?i.res.out.data[i.def.sw.field]:null;
+const fieldOf=i=>{const o=i.res&&i.res.out,sw=i.def&&i.def.sw;if(!o||!sw||!o.data)return null;if(sw.plate){const pl=o.data.plates||[],q=pl.find(x=>x.key===i.view)||pl[0];return q?q[sw.plate]:null}return sw.field?o.data[sw.field]:null};
 function syncBoards(){const g=P.graph,[W,H]=PAPER[P.paper];
   P.sheets.forEach(sh=>{if(sh.board&&!g.nodes.some(n=>n.id===sh.board))delete sh.board;sh.items=sh.items.filter(it=>it.kind!=='pnode'||g.nodes.some(n=>n.id===it.ref))});
   g.nodes.filter(n=>n.type==='p_board').forEach(bn=>{let sh=P.sheets.find(q=>q.board===bn.id);
@@ -653,16 +653,17 @@ const PDRAW={
     c.fillStyle=F.st.soft;c.font=F.font(2.4);c.fillText(bad.length?'TO LOOK AT':'EVERY CHECK PASSES',F.mm(lx),F.mm(b.y+6));
     bad.forEach((i,k)=>{const y=b.y+12+k*rh;c.fillStyle=i.r.status==='fail'?'#a36262':'#c2983a';c.fillRect(F.mm(lx),F.mm(y-2.2),F.mm(2.4),F.mm(2.4));c.fillStyle=F.st.ink;c.font=F.font(Math.min(2.8,rh*.5));c.fillText(clip(c,def(i.n.type).name+'  ·  '+i.r.value,F.mm(b.x+b.w-lx-6)),F.mm(lx+4.5),F.mm(y))});
     caption(c,b,F.s,F.st,F.no,'Scorecard',ins.length+' checks')},
-  p_map(c,b,F){const g=P.graph,src=g.wires.filter(w=>w.b===F.n.id).map(w=>g.nodes.find(n=>n.id===w.a)).filter(Boolean).map(n=>({res:R[n.id],def:def(n.type)})).find(fieldOf),mm=F.mm,st=F.st;
+  p_map(c,b,F){const g=P.graph,src=g.wires.filter(w=>w.b===F.n.id).map(w=>g.nodes.find(n=>n.id===w.a)).filter(Boolean).map(n=>({res:R[n.id],def:def(n.type),view:n.view})).find(fieldOf),mm=F.mm,st=F.st;
     if(!src){c.fillStyle=st.soft;c.textAlign='left';c.font=F.font(3);c.fillText('Connect a sun, wind or rain node to this Study map.',mm(b.x+2),mm(b.y+8));return}
     const f=fieldOf(src),B=M.B,pad=45,k=Math.min(b.w/(B.w+pad*2),(b.h-20)/(B.d+pad*2)),cx=b.x+b.w/2,cy=b.y+(b.h-20)/2,X=x=>mm(cx+(x-B.cx)*k),Y=z=>mm(cy+(z-B.cz)*k),poly=q=>{c.beginPath();q.forEach((v,i)=>i?c.lineTo(X(v[0]),Y(v[1])):c.moveTo(X(v[0]),Y(v[1])));c.closePath()};
     c.save();c.beginPath();c.rect(mm(b.x),mm(b.y),mm(b.w),mm(b.h-19));c.clip();
-    if(f.kind==='ground'){let fc=FCV.get(f);if(!fc){const G=f.grid;fc=document.createElement('canvas');fc.width=G.nx;fc.height=G.ny;const x=fc.getContext('2d'),im=x.createImageData(G.nx,G.ny);
+    const drawF=()=>{let fc=FCV.get(f);if(!fc){const G=f.grid;fc=document.createElement('canvas');fc.width=G.nx;fc.height=G.ny;const x=fc.getContext('2d'),im=x.createImageData(G.nx,G.ny);
         for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const v=f.values[j*G.nx+i];if(v!==v)continue;const o=((G.ny-1-j)*G.nx+i)*4,col=hexRgb(bandOf(f,v).color);im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=255}x.putImageData(im,0,0);FCV.set(f,fc)}
-      const G=f.grid;c.imageSmoothingEnabled=false;c.drawImage(fc,X(G.x0),Y(-(G.y0+G.ny*G.cell)),mm(G.nx*G.cell*k),mm(G.ny*G.cell*k));c.imageSmoothingEnabled=true}
+      const G=f.grid;c.imageSmoothingEnabled=false;c.drawImage(fc,X(G.x0),Y(-(G.y0+G.ny*G.cell)),mm(G.nx*G.cell*k),mm(G.ny*G.cell*k));c.imageSmoothingEnabled=true};if(f.kind==='ground'&&f.z==null)drawF();
     P.site.context.forEach(o=>{poly(rectPts(o.x,o.z,o.w,o.d));c.fillStyle=st.ctx;c.globalAlpha=f.kind==='ground'?.75:1;c.fill();c.globalAlpha=1;c.lineWidth=mm(.13);c.strokeStyle=st.soft;c.stroke()});
     c.strokeStyle=st.ink;c.lineWidth=mm(.3);c.setLineDash([mm(3),mm(1)]);poly(P.site.boundary);c.stroke();c.setLineDash([]);
     P.masses.slice().sort((p,q)=>p.base-q.base).forEach(m=>{poly(m.pts);c.fillStyle=st.paper;c.fill();c.lineWidth=mm(.45);c.strokeStyle=st.ink;c.stroke()});
+    if(f.kind==='ground'&&f.z!=null){drawF();c.lineWidth=mm(.3);c.strokeStyle=st.ink;P.masses.forEach(m=>{poly(m.pts);c.stroke()})}   // a floor-plate map sits on top of the masses
     if(f.kind==='facade')f.faces.forEach(q=>{c.beginPath();c.moveTo(X(q.a[0]),Y(-q.a[1]));c.lineTo(X(q.b[0]),Y(-q.b[1]));c.strokeStyle=bandOf(f,q.value).color;c.lineWidth=mm(1.5);c.stroke()});
     c.restore();let x=b.x+3;c.font=F.font(2.2);c.textAlign='left';f.bands.forEach(q=>{c.fillStyle=q.color;c.fillRect(mm(x),mm(b.y+b.h-16),mm(2.6),mm(2.6));c.fillStyle=st.ink;c.fillText(q.label,mm(x+3.6),mm(b.y+b.h-13.9));x+=6+c.measureText(q.label).width/F.s});
     caption(c,b,F.s,F.st,F.no,src.def.name,src.res.value||'')}
@@ -683,7 +684,7 @@ function reportBody(id){const g=P.graph,rn=g.nodes.find(n=>n.id===id),src=g.wire
   CATS.forEach(c=>{const list=ran.filter(q=>q.d.cat===c[0]);if(!list.length)return;h+='<h2>'+c[1]+'</h2>';
     list.forEach(q=>{h+='<h3>'+esc(q.d.name)+' '+pill(q.r.status)+'</h3>'+(q.d.desc?'<p class="small">'+esc(q.d.desc)+'</p>':'');
       if(q.r.items.length)h+='<table><tr><th>Reading</th><th>Value</th><th>Limit</th><th></th></tr>'+q.r.items.map(i=>{const k=i.st==='warn'?'warn':i.ok===true?'pass':i.ok===false?'fail':'';return'<tr><td>'+esc(i.k)+'</td><td>'+esc(i.v)+'</td><td>'+esc(i.thr||'')+'</td><td>'+(k?pill(k):'')+'</td></tr>'}).join('')+'</table>';
-      if(q.d.sw){if(q.d.sw.field&&q.r.out&&q.r.out.data&&q.r.out.data[q.d.sw.field]){const u=reportMap(q.n.id);if(u)h+='<img alt="Map of '+esc(q.d.name)+'" src="'+u+'">'}
+      if(q.d.sw){if(fieldOf({res:q.r,def:q.d,view:q.n.view})){const u=reportMap(q.n.id);if(u)h+='<img alt="Map of '+esc(q.d.name)+'" src="'+u+'">'}
         const set=Object.keys(q.n.params||{}).filter(k=>SW.meta&&SW.meta.settings[q.d.sw.id].some(z=>z.id===k)).map(k=>k+' = '+q.n.params[k]).join(', ');
         h+='<p class="small">Engine from Sun &amp; Wind Studio, CWEC 2020 typical year for Vancouver'+(q.r.out&&q.r.out.ms!=null?', ran in '+(q.r.out.ms>=1000?n1(q.r.out.ms/1000)+' s':Math.round(q.r.out.ms)+' ms'):'')+(q.r.stale?'. This result is from an earlier state of the model':'')+'.'+(set?' Settings changed from the defaults: '+esc(set)+'.':'')+'</p>'}
       else{const ps=Object.keys(q.d.params||{});if(ps.length)h+='<p class="small">Set with: '+ps.map(k=>esc(q.d.params[k][0])+' '+pv(q.n,k)).join('; ')+'.</p>'}
@@ -699,6 +700,10 @@ function openReport(id,here){const n=P.graph.nodes.find(x=>x.id===id);if(!n)retu
 function notesList(){const g=P.graph,out=[];g.nodes.forEach(n=>{const d=def(n.type);if(!d)return;const val=x=>R[x.id]&&R[x.id].status!=='idle'?R[x.id].value:'';
   if(n.type==='note'){if(!(n.text||'').trim())return;const w=g.wires.find(w=>w.b===n.id),a=w&&g.nodes.find(x=>x.id===w.a),ad=a&&def(a.type);out.push({head:ad?ad.name:'Note',sub:ad?val(a):'',text:n.text.trim()})}
   else if((n.memo||'').trim())out.push({head:d.name,sub:val(n),text:n.memo.trim()})});return out}
+// LEED daylight, ported from Sun & Wind Studio (sw/daylight.js): one run feeds the three nodes; each shows its own readings and its own map on a floor plate
+A('dldf','sun','Daylight factor',['site','massing','material'],{},null,{sw:{id:'tw.daylight',match:/^dl-df|:df$/,plate:'df'},desc:'Daylight under an overcast sky as a share of the light outside, on each floor plate.'});
+A('dlsda','sun','Daylight autonomy · LEED sDA',['site','massing','material'],{},null,{sw:{id:'tw.daylight',match:/^dl-(sda|da|udi)|:sda$/,plate:'da'},desc:'Share of the floor that reaches the target from daylight alone for half the occupied hours of the climate year. LEED v4.1 EQ Daylight, option 1.'});
+A('dlase','sun','Sunlight exposure · LEED ASE',['site','massing','material'],{},null,{sw:{id:'tw.daylight',match:/^dl-ase|:ase$/,plate:'ase'},desc:'Share of the floor that gets 1,000 lux or more of direct sun for over 250 occupied hours a year. LEED asks for 10% or less.'});
 function hash(s){let h=5381;for(let i=0;i<s.length;i++)h=(h*33^s.charCodeAt(i))>>>0;return h.toString(36)}
 function customDef(c){return{id:c.id,cat:c.cat||'mine',name:c.name,ins:c.ins,params:{},out:'result',custom:1,desc:'Your node. Formula: '+c.expr,run:m=>{
   const vars={siteArea:m.sa,gfa:m.gfa,fsr:m.fsr,tallest:m.tallest,coverage:m.cov,openSpace:m.open,footprint:m.foot,facadeArea:m.facade,masses:m.ms.length,homes:m.units,people:m.pop,trees:m.trees,residential:m.byUse.residential,office:m.byUse.office,retail:m.byUse.retail,hotel:m.byUse.hotel};
@@ -742,25 +747,25 @@ function payloads(){ // the model in the engines' frame: x east, y north, counte
     for(let i=0;i<m.floors;i++)floors.push({level:i+1,z0:m.base+i*m.f2f,z1:m.base+(i+1)*m.f2f,use,area:a,podium:false,ring:r});
     towers.push({id:m.id,name:m.name,height:top,blocks:[{ring:r,z0:m.base,z1:top,podium:false}],tower:null});
     pt.push({id:m.id,name:m.name,floors,gfaByUse:{[use]:a*m.floors}})});
-  return{site:{project:'vtc',ring:ring(P.site.boundary),context:P.site.context.map(c=>({ring:ring(rectPts(c.x,c.z,c.w,c.d)),z0:0,z1:c.h,source:'context'})),latLon:[49.2827,-123.1207],northDeg:0,ground:0},massing:{towers},program:{towers:pt}}}
+  return{site:{project:'vtc',ring:ring(P.site.boundary),context:P.site.context.map(c=>({ring:ring(rectPts(c.x,c.z,c.w,c.d)),z0:0,z1:c.h,source:'context'})),latLon:[49.2827,-123.1207],northDeg:0,ground:0},massing:{towers},program:{towers:pt},tw:{masses:P.masses.map(m=>({id:m.id,name:m.name,pts:m.pts,holes:m.holes||null,core:m.core||null,base:m.base,floors:m.floors,f2f:m.f2f,use:m.use,wwr:WWR[m.mat]||40}))}}}
 function swJob(n,d){const params=Object.assign({},n.params,d.sw.fixed);return{key:d.sw.id+':'+hash(SW.PLK+JSON.stringify(params)),id:d.sw.id,params,inputs:SW.PL,node:n.id}}
-function fromOut(out,d){let its=out.items||[];if(d.sw.items)its=d.sw.items.map(id=>its.find(i=>i.id===id)).filter(Boolean);
+function fromOut(out,d){let its=out.items||[];if(d.sw.items)its=d.sw.items.map(id=>its.find(i=>i.id===id)).filter(Boolean);else if(d.sw.match)its=its.filter(i=>d.sw.match.test(i.id));
   const items=its.map(i=>Object.assign(I(i.label+(i.towerName?' · '+i.towerName:''),i.value,i.state==='pass'?true:i.state==='fail'?false:undefined),{st:i.state,thr:i.threshold,tower:i.towerName,lab:i.label}));
-  return{status:items.some(i=>i.st==='fail')?'fail':items.some(i=>i.st==='warn')?'warn':items.some(i=>i.st==='pass')?'pass':'info',value:d.sw.items&&items[0]?items[0].v:(out.headline||''),items,out}}
+  const jd=d.sw.match?items.filter(i=>!i.tower):items;return{status:jd.some(i=>i.st==='fail')?'fail':jd.some(i=>i.st==='warn')?'warn':jd.some(i=>i.st==='pass')?'pass':'info',value:(d.sw.items||d.sw.match)&&items[0]?items[0].v:(out.headline||''),items,out}}
 function swWorker(){if(SW.w)return SW.w;try{SW.w=new Worker('sw/worker.js')}catch(e){swFallback();return null}
   SW.w.onmessage=e=>{const m=e.data;if(m.meta){SW.meta=m.meta;swMetaDone();return}const j=SW.busy;if(j&&m.job===j.key)swDone(j,m.out,m.error)};
   SW.w.onerror=e=>{if(e.preventDefault)e.preventDefault();SW.w=null;swFallback()};
   SW.w.postMessage({meta:true});return SW.w}
 function swFallback(){ // no worker (a local file, or a blocked one): load the engines on the page instead
   if(SW.main||SW.dead||SW.loading)return;SW.loading=true;const s=document.createElement('script');s.src='sw/engines.js';
-  s.onload=()=>{SW.main=true;const X=window.SWX;SW.meta={settings:{},defaults:{}};X.IDS.forEach(id=>{SW.meta.settings[id]=X.settingsOf(id);SW.meta.defaults[id]=X.defaultsOf(id)});const j=SW.busy;SW.busy=null;if(j)SW.q.unshift(j);swMetaDone();swPump()};
+  s.onload=()=>{const s2=document.createElement('script');s2.src='sw/daylight.js';s2.onerror=s2.onload=()=>{SW.main=true;SW.meta={settings:{},defaults:{}};[window.SWX,window.TWX].forEach(X=>{if(X)X.IDS.forEach(id=>{SW.meta.settings[id]=X.settingsOf(id);SW.meta.defaults[id]=X.defaultsOf(id)})});const j=SW.busy;SW.busy=null;if(j)SW.q.unshift(j);swMetaDone();swPump()};document.head.appendChild(s2)};
   s.onerror=()=>{SW.dead=true;SW.busy=null;SW.q=[];evaluate();softUi()};document.head.appendChild(s)}
 function swMeta(cb){if(SW.meta){cb();return}SW.cbs.push(cb);if(!SW.main)swWorker()}
 function swMetaDone(){SW.cbs.splice(0).forEach(f=>f())}
-function swRun(job){if(SW.cache[job.key]||SW.q.some(j=>j.key===job.key)||(SW.busy&&SW.busy.key===job.key))return;delete SW.err[job.key];SW.q.push(job);swPump()}
+function swRun(job){if(SW.cache[job.key]||SW.q.some(j=>j.key===job.key)||(SW.busy&&SW.busy.key===job.key))return;delete SW.err[job.key];SW.q=SW.q.filter(j=>!(j.node===job.node&&j.id===job.id));SW.q.push(job);swPump()}
 function swPump(){if(SW.busy||!SW.q.length||SW.dead)return;if(!SW.main&&!swWorker())return;
   const j=SW.busy=SW.q.shift();j.t0=Date.now();
-  if(SW.main)setTimeout(()=>{try{const df=window.SWX.RUNNERS[j.id];swDone(j,df.run(Object.assign({climate:window.SWX.climate},j.inputs),Object.assign({},df.defaults,j.params)))}catch(e){swDone(j,null,e.message)}},40);
+  if(SW.main)setTimeout(()=>{try{const df=window.SWX.RUNNERS[j.id]||(window.TWX&&window.TWX.RUNNERS[j.id]);if(!df)throw new Error('This engine did not load');swDone(j,df.run(Object.assign({climate:window.SWX.climate},j.inputs),Object.assign({},df.defaults,j.params)))}catch(e){swDone(j,null,e.message)}},40);
   else SW.w.postMessage({job:j.key,id:j.id,inputs:j.inputs,params:j.params})}
 function swDone(j,out,err){SW.busy=null;
   if(out){if(out.ms==null)out.ms=Date.now()-j.t0;SW.cache[j.key]=out;SW.order.push(j.key);if(SW.order.length>40)delete SW.cache[SW.order.shift()];SW.last[j.node]=out}else SW.err[j.key]=err||'the engine stopped';
@@ -793,15 +798,16 @@ function stInit(){const cvs=$('#stCv');ST.r=new THREE.WebGLRenderer({canvas:cvs,
 function stProbe(e){const tip=$('#stTip'),f=ST.fld;if(!tip)return;let t='';
   if(f){const cvs=$('#stCv'),r=cvs.getBoundingClientRect();ST.ray.setFromCamera(new THREE.Vector2((e.clientX-r.left)/r.width*2-1,-(e.clientY-r.top)/r.height*2+1),ST.cam);
     if(f.kind==='facade'){const h=ST.ray.intersectObjects(ST.pick,false)[0];if(h&&h.object.userData.v!=null)t=fmtV(h.object.userData.v)+' '+(f.unit||'')+' · '+bandOf(f,h.object.userData.v).label}
-    else{const p=new THREE.Vector3();if(ST.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),p)){const G=f.grid,i=Math.floor((p.x-G.x0)/G.cell),j=Math.floor((-p.z-G.y0)/G.cell);if(i>=0&&j>=0&&i<G.nx&&j<G.ny){const v=f.values[j*G.nx+i];if(v===v)t=fmtV(v)+' '+(f.unit||'')+' · '+bandOf(f,v).label}}}
+    else{const p=new THREE.Vector3();if(ST.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),-(f.z||0)),p)){const G=f.grid,i=Math.floor((p.x-G.x0)/G.cell),j=Math.floor((-p.z-G.y0)/G.cell);if(i>=0&&j>=0&&i<G.nx&&j<G.ny){const v=f.values[j*G.nx+i];if(v===v)t=fmtV(v)+' '+(f.unit||'')+' · '+bandOf(f,v).label}}}
     if(t){tip.textContent=t;tip.style.left=(e.clientX-r.left)+'px';tip.style.top=(e.clientY-r.top)+'px'}}
   tip.hidden=!t}
 function stRefresh(){if($('#studio').hidden||!ST.id)return;const n=P.graph.nodes.find(x=>x.id===ST.id);if(!n){closeStudio();return}
-  const d=def(n.type),r=R[n.id]||{status:'idle',items:[],value:''},out=r.out,f=d.sw&&d.sw.field&&out&&out.data?out.data[d.sw.field]:null,busy=!!r.running;
+  const d=def(n.type),r=R[n.id]||{status:'idle',items:[],value:''},out=r.out,plates=d.sw&&d.sw.plate&&out&&out.data&&out.data.plates?out.data.plates:null,plSel=plates?(plates.find(q=>q.key===n.view)||plates[0]):null,f=plSel?plSel[d.sw.plate]:d.sw&&d.sw.field&&out&&out.data?out.data[d.sw.field]:null,busy=!!r.running;
   $('#stState').textContent=r.stale?(busy?'Updating…':'The model or set-up changed since this run'):busy?'Running…':STW[r.status]+(out&&out.ms!=null?' · '+(out.ms>=1000?n1(out.ms/1000)+' s':Math.round(out.ms)+' ms'):'');
   // set-up
-  const sig=JSON.stringify([d.sw?n.params:[pv(n,'lat'),pv(n,'month')],!!SW.meta,busy,SW.dead]);
+  const sig=JSON.stringify([d.sw?n.params:[pv(n,'lat'),pv(n,'month')],!!SW.meta,busy,SW.dead,plates?plates.map(q=>q.key).join():0,n.view]);
   if(sig!==ST.setSig){ST.setSig=sig;let h='<div class="section"><h3>Set up</h3>';
+    if(plates&&plates.length)h+='<div class="field"><label for="stPlate">Floor plate shown</label><select id="stPlate" data-ch="stView">'+plates.map(q=>'<option value="'+q.key+'"'+(plSel&&plSel.key===q.key?' selected':'')+'>'+esc(q.name)+'</option>').join('')+'</select></div>';
     if(d.sw){if(SW.dead)h+='<p class="notice" style="margin:0">The engine files (sw/engines.js) were not found beside this page.</p>';else if(!SW.meta)h+='<p class="notice" style="margin:0">Loading the engines…</p>';
       else{const df=SW.meta.defaults[d.sw.id];SW.meta.settings[d.sw.id].filter(s=>!(d.sw.hide||[]).includes(s.id)).forEach(s=>{const v=n.params[s.id]!=null?n.params[s.id]:df[s.id];
           h+='<div class="field"><label for="stp-'+s.id+'">'+esc(s.label)+(s.unit?', '+esc(s.unit):'')+'</label>'+(s.choices?'<select id="stp-'+s.id+'" data-ch="stp" data-k="'+s.id+'">'+s.choices.map(c=>'<option value="'+esc(c.value)+'"'+(String(c.value)===String(v)?' selected':'')+'>'+esc(c.label)+'</option>').join('')+'</select>':
@@ -815,10 +821,10 @@ function stRefresh(){if($('#studio').hidden||!ST.id)return;const n=P.graph.nodes
   const pill=i=>{const s=i.st||(i.ok===true?'pass':i.ok===false?'fail':'unknown');return'<span class="pl '+s+'">'+({pass:'Pass',warn:'Near',fail:'Fail',unknown:'—'})[s]+'</span>'};
   let h='<div class="section"><h3>Key results</h3>',tw=null;if(!r.items.length)h+='<p class="notice" style="margin:0">'+esc(r.value||'')+'</p>';
   r.items.forEach(i=>{if(i.tower&&i.tower!==tw){tw=i.tower;h+='<div class="lab" style="margin:12px 0 0;font-weight:600;color:var(--ink)">'+esc(tw)+'</div>'}h+='<div class="kr"><span class="l">'+esc(i.lab||i.k)+'</span><b>'+esc(i.v)+'</b>'+pill(i)+(i.thr?'<span class="t">'+esc(i.thr)+'</span>':'')+'</div>'});
-  h+='</div><div class="section"><h3>Note for the sheet</h3><textarea data-memo="1" id="stMemo" rows="3" placeholder="What should the sheet say about this result?" style="font-family:var(--sans)">'+esc(n.memo||'')+'</textarea><p class="notice">Printed under this view when you add it to a sheet, and in the Notes block.</p></div><div class="section">'+(d.act?'<button class="primary" data-act="stAct" style="width:100%;margin-bottom:8px">'+d.act[0]+'</button>':'')+'<div class="row"><button data-act="stSheet">Add view to a sheet</button><button data-act="stCopy">Copy values</button></div><p class="notice">'+(d.sw?'These readings are this node\'s output: anything wired to it, the scorecard and the results table read them. Climate: CWEC 2020 typical year, Vancouver.':'A geometric preview. The sun-hour and façade nodes use the measured climate year.')+'</p></div>';
+  h+='</div><div class="section"><h3>Note for the sheet</h3><textarea data-memo="1" id="stMemo" rows="3" placeholder="What should the sheet say about this result?" style="font-family:var(--sans)">'+esc(n.memo||'')+'</textarea><p class="notice">Printed under this view when you add it to a sheet, and in the Notes block.</p></div><div class="section">'+(d.act?'<button class="primary" data-act="stAct" style="width:100%;margin-bottom:8px">'+d.act[0]+'</button>':'')+'<div class="row"><button data-act="stSheet">Add view to a sheet</button><button data-act="stCopy">Copy values</button></div><p class="notice">'+(d.sw?(d.sw.plate?'Method from Sun & Wind Studio: sixteen sight lines per floor cell to the glass, the CIE overcast sky for the daylight factor, each face\'s own Perez sky over the occupied hours (8:00 to 18:00) of the CWEC 2020 year for autonomy, and direct sun of 1,000 lux or more for ASE. Glazing comes from each mass\'s material; there are no blinds or shading devices. ':'')+'These readings are this node\'s output: anything wired to it, the scorecard and the results table read them. Climate: CWEC 2020 typical year, Vancouver.':'A geometric preview. The sun-hour and façade nodes use the measured climate year.')+'</p></div>';
   if((document.activeElement||{}).id!=='stMemo')$('#stRes').innerHTML=h;
   // scene
-  const sc=JSON.stringify([r.key,out?out.ms:0,SW.PLK,d.studio?[pv(n,'lat'),pv(n,'month'),pv(n,'hour')]:0,r.status]);if(sc!==ST.scSig){ST.scSig=sc;stScene(n,d,r,f)}}
+  const sc=JSON.stringify([r.key,out?out.ms:0,SW.PLK,d.studio?[pv(n,'lat'),pv(n,'month'),pv(n,'hour')]:0,r.status,plSel?plSel.key:0]);if(sc!==ST.scSig){ST.scSig=sc;stScene(n,d,r,f)}}
 const hm=h=>Math.floor(h)+':'+String(Math.round(h%1*60)).padStart(2,'0');
 function stScene(n,d,r,f){const g=ST.g;g.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(o.material.map)o.material.map.dispose();o.material.dispose()}});while(g.children.length)g.remove(g.children[0]);ST.pick=[];ST.fld=f;
   ST.r.setClearColor(new THREE.Color(cssVar('--stage')||'#fcfcfc'));
@@ -828,10 +834,10 @@ function stScene(n,d,r,f){const g=ST.g;g.traverse(o=>{if(o.geometry)o.geometry.d
   if(ground){const G=f.grid,c=document.createElement('canvas');c.width=G.nx;c.height=G.ny;const x=c.getContext('2d'),im=x.createImageData(G.nx,G.ny);
     for(let j=0;j<G.ny;j++)for(let i=0;i<G.nx;i++){const v=f.values[j*G.nx+i];if(v!==v)continue;const o=((G.ny-1-j)*G.nx+i)*4,col=hexRgb(bandOf(f,v).color);im.data[o]=col[0];im.data[o+1]=col[1];im.data[o+2]=col[2];im.data[o+3]=255}
     x.putImageData(im,0,0);const t=new THREE.CanvasTexture(c);t.magFilter=t.minFilter=THREE.NearestFilter;t.generateMipmaps=false;
-    const w=G.nx*G.cell,dp=G.ny*G.cell,pl=new THREE.Mesh(new THREE.PlaneGeometry(w,dp),new THREE.MeshBasicMaterial({map:t,transparent:true}));pl.rotation.x=-Math.PI/2;pl.position.set(G.x0+w/2,.03,-(G.y0+dp/2));g.add(pl)}
+    const w=G.nx*G.cell,dp=G.ny*G.cell,pl=new THREE.Mesh(new THREE.PlaneGeometry(w,dp),new THREE.MeshBasicMaterial({map:t,transparent:true}));pl.rotation.x=-Math.PI/2;pl.position.set(G.x0+w/2,(f.z||0)+.03,-(G.y0+dp/2));if(f.z!=null){pl.material.depthTest=false;pl.material.side=THREE.DoubleSide;pl.renderOrder=5}g.add(pl)}
   P.site.context.forEach(c=>{const geo=new THREE.BoxGeometry(c.w,c.h,c.d);geo.translate(c.x,c.h/2,c.z);add(geo,'#ececea','#c2c2c7',ground?.45:1)});
   const ts={};r.items.forEach(i=>{if(i.tower&&i.st)ts[i.tower]=Math.max(ts[i.tower]||0,({warn:1,fail:2})[i.st]||0)});
-  P.masses.forEach(m=>{const me=add(massGeo(m),d.sw&&d.sw.id==='sw.energy'&&ts[m.name]!=null?['#cfe0d4','#f1dca7','#e8b8ae'][ts[m.name]]:'#f6f6f4','#55555a',1);ST.pick.push(me)});
+  const onPlate=ground&&f.z!=null;P.masses.forEach(m=>{const me=add(massGeo(m),d.sw&&d.sw.id==='sw.energy'&&ts[m.name]!=null?['#cfe0d4','#f1dca7','#e8b8ae'][ts[m.name]]:'#f6f6f4','#55555a',onPlate?.1:1);if(onPlate)me.material.depthWrite=false;ST.pick.push(me)});
   if(f&&f.kind==='facade')f.faces.forEach(q=>{const a=q.az*Math.PI/180,nx=Math.sin(a)*.25,nz=-Math.cos(a)*.25,A=[q.a[0]+nx,-q.a[1]+nz],B=[q.b[0]+nx,-q.b[1]+nz],geo=new THREE.BufferGeometry();
     geo.setAttribute('position',new THREE.Float32BufferAttribute([A[0],q.z0,A[1],B[0],q.z0,B[1],B[0],q.z1,B[1],A[0],q.z1,A[1]],3));geo.setIndex([0,1,2,0,2,3]);
     const me=new THREE.Mesh(geo,new THREE.MeshBasicMaterial({color:new THREE.Color(bandOf(f,q.value).color),side:THREE.DoubleSide}));me.userData={v:q.value};g.add(me);ST.pick.push(me)});
@@ -909,8 +915,9 @@ function mapUse(){const D=MS.D,sel=MS.sel;if(!sel)return;const pts=sel.pts.map(q
 /* ---------- presets and layout ---------- */
 const SRC=['site','massing','material','program'];
 const PRESETS={
-  climate:['Site & climate',['rules','cone','shadow','solar','facadesun','daylight','windtrig','windscr','windproc','rainface','rainground','sky','energy','score','report']],
+  climate:['Site & climate',['rules','cone','shadow','solar','facadesun','daylight','windtrig','windscr','windproc','rainface','rainground','sky','energy','dldf','dlsda','dlase','score','report']],
   board:['Presentation board',['rules','solar','windscr','energy','score','p_title','p_stats','p_mix','p_axo','p_shadow','p_score','p_map','p_board']],
+  leed:['LEED daylight',['dldf','dlsda','dlase','solar','facadesun','score','report']],
   feas:['Feasibility',['rules','fsr','value','core','parking','trips','energy','score']],
   realm:['Public realm',['street','front','open','nature','sky','solar','interior','score']],
   full:['Full review',Object.keys(DEFS).filter(k=>!DEFS[k].src&&k!=='data'&&k!=='note')]
@@ -1989,6 +1996,7 @@ const CH={
   viewName:(v,el)=>{P.views.find(x=>x.id===el.dataset.id).name=v;unsaved()},
   preset:v=>{if(v)ACT.preset({k:v})},
   np:(v,el)=>{const n=P.graph.nodes.find(x=>x.id===S.nopen);n.params[el.dataset.k]=+v||0;graphChanged()},
+  stView:v=>{const n=P.graph.nodes.find(x=>x.id===ST.id);if(n){n.view=v;unsaved();stRefresh()}},
   stp:(v,el)=>{const n=P.graph.nodes.find(x=>x.id===ST.id);n.params[el.dataset.k]=el.dataset.num?+v:v;unsaved();evaluate();softUi()},
   style:v=>{P.style=v;unsaved();refreshRenders();ui()},paper:v=>{const o=PAPER[P.paper],n=PAPER[v],k=n[0]/o[0];P.paper=v;P.sheets.forEach(s=>s.items.forEach(i=>{i.x=Math.round(i.x*k);i.y=Math.round(i.y*k);i.w=Math.round(i.w*k);i.h=Math.round(i.h*k)}));refreshRenders();ui()},
   sheetName:(v,el)=>{P.sheets[+el.dataset.i].name=v;drawSheetView()},
