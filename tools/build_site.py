@@ -5,7 +5,7 @@ import io, os, shutil, sys
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 OUT = os.path.abspath(sys.argv[1]) if len(sys.argv) > 1 else os.path.join(ROOT, '_site')
-COPY = ['sw/engines.js', 'sw/worker.js', 'map/vancouver.js', 'rhino/rhino3dm.min.js', 'rhino/rhino3dm.wasm', 'rhino/sw_link.py', 'link.js']
+COPY = ['sw/engines.js', 'sw/daylight.js', 'sw/worker.js', 'map/vancouver.js', 'rhino/rhino3dm.min.js', 'rhino/rhino3dm.wasm', 'rhino/sw_link.py', 'link.js']
 
 src = io.open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read()
 cut = src.index('<div id="stage">')          # everything before the stage is head content: charset, title, fonts, styles

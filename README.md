@@ -28,6 +28,7 @@ Opening `index.html` straight from disk also works, with two limits: the analysi
 |---|---|
 | `index.html` | The whole app: styles, markup and one script |
 | `sw/engines.js`, `sw/worker.js` | Sun, wind, rain and energy engines with the CWEC 2020 Vancouver climate year, and the worker that runs them |
+| `sw/daylight.js` | LEED daylight: daylight factor, daylight autonomy (sDA) and sunlight exposure (ASE), ported from Sun & Wind Studio |
 | `map/vancouver.js` | The map for "Select site boundary": blocks, buildings with heights and labels around the Vancouver Tall competition site |
 | `tools/gen_map.py` | Rebuilds `map/vancouver.js` from the competition base model |
 | `tools/build_site.py` | Builds the website on the `gh-pages` branch: wraps `index.html` in a normal page and copies the other files |
