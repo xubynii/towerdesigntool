@@ -8,6 +8,8 @@ A browser workspace for early tower design in three spaces that share one projec
 
 There is no build step. Everything is in `index.html` plus a few files it loads on demand.
 
+**Live:** https://xubynii.github.io/towerdesigntool/
+
 ## Run it
 
 ```
@@ -28,6 +30,7 @@ Opening `index.html` straight from disk also works, with two limits: the analysi
 | `sw/engines.js`, `sw/worker.js` | Sun, wind, rain and energy engines with the CWEC 2020 Vancouver climate year, and the worker that runs them |
 | `map/vancouver.js` | The map for "Select site boundary": blocks, buildings with heights and labels around the Vancouver Tall competition site |
 | `tools/gen_map.py` | Rebuilds `map/vancouver.js` from the competition base model |
+| `tools/build_site.py` | Builds the website on the `gh-pages` branch: wraps `index.html` in a normal page and copies the other files |
 | `rhino/rhino3dm.min.js`, `rhino/rhino3dm.wasm` | rhino3dm, for reading and writing `.3dm` files |
 | `rhino/sw_link.py` | Sun & Wind Link, the Rhino 7 / 8 panel behind the live link |
 | `link.js` | A marker the Rhino panel looks for, so it can serve this folder |

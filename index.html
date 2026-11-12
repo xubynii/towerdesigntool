@@ -1069,7 +1069,7 @@ function newMass(pts,base,holes){if(area(pts)<4){toast('That shape is too small 
 function startBase(e){const h=hit(e);return h&&h.object.userData.t==='mass'&&h.face&&h.face.normal.y>.9?Math.round(h.point.y*10)/10:0}
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 cv.addEventListener('webglcontextlost',e=>e.preventDefault());
-cv.addEventListener('webglcontextrestored',()=>{T.r.setClearColor(0x123456);rebuild();if(S.space==='pres')refreshRenders()});
+cv.addEventListener('webglcontextrestored',()=>setTimeout(()=>{T.r.setClearColor(0x123456);rebuild();if(S.space==='pres')refreshRenders()},0));   // after three.js has rebuilt its own state
 cv.addEventListener('pointerdown',e=>{
   cv.setPointerCapture(e.pointerId);const t=S.tool,sx=e.clientX,sy=e.clientY;
   if(S.sticky){endPull(false);return}   // the second click of a picked-up face sets it
