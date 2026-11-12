@@ -285,6 +285,16 @@ body:not([data-space="model"]) .topbar{right:276px}
 .rdot[data-state="ok"]{background:var(--accent)} .rdot[data-state="bad"]{background:var(--bad)} .rdot[data-state="sync"]{background:var(--warn)}
 .lnk{color:var(--ink);font-size:11px;text-decoration:underline;text-underline-offset:2px}
 @media (max-width:860px){.mcgrid{grid-template-columns:minmax(0,1fr);grid-template-rows:auto 300px;overflow-y:auto}}
+/* the mass list */
+.mrow{gap:6px!important;padding:5px 4px 5px 7px!important}
+.mrow .mh{color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:11px}
+.mrow .mb{border:0;background:transparent;padding:3px;line-height:0;color:var(--muted);border-radius:6px;flex:none}
+.mrow .mb svg{width:16px;height:16px}
+.mrow .mb:hover{background:var(--soft);color:var(--ink)}
+.mrow .mb.del:hover{color:var(--bad);background:var(--bad-soft)}
+.mrow.off{cursor:default}
+.mrow.off .n,.mrow.off .mh,.mrow.off .dot{opacity:.45}
+.mrow.off .n{text-decoration:line-through}
 /* report reader */
 #report{position:absolute;inset:0;z-index:19;background:#f1f1f3;display:flex;flex-direction:column}
 .rbar{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--surface);border-bottom:1px solid var(--border);flex-wrap:wrap;color:var(--ink)}
@@ -486,7 +496,7 @@ const S={space:'model',tab:{model:'Properties',nodes:'Nodes',pres:'Sheets'},tool
   nv:{x:0,y:0,k:1},nsel:null,wsel:null,nopen:null,sheet:0,isel:null,dirty:false,catq:'',aq:''};
 function example(){
   const p={v:1,title:'Example project',site:makeSite('vtc'),masses:[],assets:[],views:defViews(),graph:{nodes:[],wires:[]},custom:[],sheets:[],style:'competition',paper:'A3',
-    sun:{month:6,hour:15},guide:{gi:0,past:{},closed:false},bg:'',ui:{grid:false,labels:true,prog:false,snap:true},log:[]};
+    sun:{month:6,hour:15},guide:{gi:0,past:{},closed:false},bg:'',ui:{grid:false,labels:true,prog:false,snap:true},log:[],hidden:[]};
   const m=(name,pts,base,floors,f2f,use,mat)=>p.masses.push({id:uid(),name,pts,base,floors,f2f,use,mat,src:'example'});
   m('Podium',rectPts(12,-12,96,62),0,5,4.5,'retail','concrete');
   m('Tower A',rectPts(-14,-22,28,28),22.5,58,3.2,'residential','glass');
@@ -1077,8 +1087,8 @@ function ground(e,y){T.ray.setFromCamera(ndc(e),curCam());const p=new THREE.Vect
 const massBy=id=>P.masses.find(m=>m.id===id),assetBy=id=>P.assets.find(a=>a.id===id);
 function setPrev(pts,y,close){const a=pts.map(p=>new THREE.Vector3(p[0],y+.12,p[1]));if(close&&a.length)a.push(a[0].clone());T.prev.geometry.dispose();T.prev.geometry=new THREE.BufferGeometry().setFromPoints(a);S.dirty=true}
 function commit(msg){S.undo.push(S.last);if(S.undo.length>60)S.undo.shift();S.redo=[];S.last=snapM();unsaved();refresh();if(msg)toast(msg)}
-const snapM=()=>JSON.stringify({masses:P.masses,assets:P.assets});
-function restore(j){const o=JSON.parse(j);P.masses=o.masses;P.assets=o.assets;S.last=j;S.sel=null;unsaved();refresh()}
+const snapM=()=>JSON.stringify({masses:P.masses,assets:P.assets,hidden:P.hidden||[]});
+function restore(j){const o=JSON.parse(j);P.masses=o.masses;P.assets=o.assets;P.hidden=o.hidden||[];S.last=j;S.sel=null;unsaved();refresh()}
 function refresh(){evaluate();rebuild();ui()}
 function newMass(pts,base,holes){if(area(pts)<4){toast('That shape is too small to be a mass');return}const m={id:uid(),name:'Mass '+(P.masses.length+1),pts,base:base||0,floors:6,f2f:3.6,use:'residential',mat:'concrete',src:'drawn'};if(holes&&holes.length)m.holes=holes;P.masses.push(m);S.sel={t:'mass',id:m.id};S.step='Massing';commit();setTool('pull')}
 function startBase(e){const h=hit(e);return h&&h.object.userData.t==='mass'&&h.face&&h.face.normal.y>.9?Math.round(h.point.y*10)/10:0}
@@ -1444,11 +1454,15 @@ function drawPrev(){
 function drawRight(){
   $('#rtabs').innerHTML=['Site','Massing','Material','Program'].map(s=>'<button data-act="step" data-s="'+s+'" class="'+(S.step===s?'on':'')+'">'+s+'</button>').join('');
   const selId=S.sel&&S.sel.t==='mass'?S.sel.id:null,l=P.site.limits;let h='';
-  const rows=(k,o)=>P.masses.length?'<div class="list">'+P.masses.map(m=>'<div class="li '+(selId===m.id?'on':'')+'" data-act="selMass" data-id="'+m.id+'"><i class="dot" style="background:'+(k==='use'?USES[m.use][1]:MATS[m.mat][1])+';border:1px solid var(--border)"></i><span class="n">'+esc(m.name)+'</span>'+
-    (k?'<select data-ch="massSet" data-id="'+m.id+'" data-k="'+k+'" id="ms-'+k+'-'+m.id+'" aria-label="'+(k==='use'?'Program':'Material')+' of '+esc(m.name)+'" style="width:104px;padding:4px 6px">'+opt(o,m[k])+'</select>':'<span style="color:var(--muted);font-variant-numeric:tabular-nums">'+m.floors+' st · '+n0(m.floors*m.f2f)+' m</span>')+'</div>').join('')+'</div>':'<p class="notice" style="margin:0">No masses yet. Draw one with the rectangle tool, or import a massing.</p>';
+  const top=m=>m.base+m.floors*m.f2f,eye='<svg class="ic" viewBox="0 0 20 20"><path d="M2.5 10s3-5 7.5-5 7.5 5 7.5 5-3 5-7.5 5-7.5-5-7.5-5z"/><circle cx="10" cy="10" r="2.2"/></svg>',eyeOff='<svg class="ic" viewBox="0 0 20 20"><path d="M4 4l12 12M8.3 5.3A8 8 0 0 1 10 5c4.500 5 7.500 5 7.500 5a13 13 0 0 1-2.200 2.600M12.800 14.300A7.500 7.500 0 0 1 10 15c-4.500 0-7.500-5-7.500-5a13 13 0 0 1 3-3.300"/></svg>',bin='<svg class="ic" viewBox="0 0 20 20"><path d="M4.500 6h11M8 6V4h4v2M6 6l.800 10h6.400L14 6M8.500 9v4.500M11.500 9v4.500"/></svg>',
+    all=P.masses.map(m=>({m,off:false})).concat((P.hidden||[]).map(m=>({m,off:true}))).sort((a,b)=>top(b.m)-top(a.m)||a.m.name.localeCompare(b.m.name));
+  const rows=(k,o)=>all.length?'<div class="list">'+all.map(q=>{const m=q.m,off=q.off;if(k&&off)return'';
+      return'<div class="li mrow '+(selId===m.id?'on':'')+(off?' off':'')+'" data-act="'+(off?'':'selMass')+'" data-id="'+m.id+'"><i class="dot" style="background:'+(k==='use'?USES[m.use][1]:MATS[m.mat][1])+';border:1px solid var(--border)"></i><span class="n">'+esc(m.name)+'</span>'+
+        (k?'<select data-ch="massSet" data-id="'+m.id+'" data-k="'+k+'" id="ms-'+k+'-'+m.id+'" aria-label="'+(k==='use'?'Program':'Material')+' of '+esc(m.name)+'" style="width:104px;padding:4px 6px">'+opt(o,m[k])+'</select>':
+          '<span class="mh">'+m.floors+' st · '+n0(m.floors*m.f2f)+' m</span><button class="mb" data-act="massEye" data-id="'+m.id+'" title="'+(off?'Turn this mass on':'Turn this mass off')+'" aria-label="'+(off?'Turn on ':'Turn off ')+esc(m.name)+'" aria-pressed="'+!off+'">'+(off?eyeOff:eye)+'</button><button class="mb del" data-act="massDel" data-id="'+m.id+'" title="Delete this mass" aria-label="Delete '+esc(m.name)+'">'+bin+'</button>')+'</div>'}).join('')+'</div>':'<p class="notice" style="margin:0">No masses yet. Draw one with the rectangle tool, or import a massing.</p>';
   if(S.step==='Site')h='<div class="section"><h3>Site <span>'+esc(P.site.src)+'</span></h3><div class="field"><label for="siteSel">Site</label><select id="siteSel" data-ch="site">'+siteOpts()+'</select></div><div class="kv">Area<b>'+n0(M.sa)+' m²</b></div><div class="kv">Neighbours<b>'+P.site.context.length+' buildings</b></div></div>'+
     '<div class="section"><h3>Limits</h3><div class="row"><div class="field"><label for="lh">Height, m</label><input id="lh" type="number" data-ch="lim" data-k="h" value="'+l.h+'"></div><div class="field"><label for="lf">FAR</label><input id="lf" type="number" step="0.5" data-ch="lim" data-k="fsr" value="'+l.fsr+'"></div><div class="field"><label for="lc">Cover, %</label><input id="lc" type="number" data-ch="lim" data-k="cov" value="'+l.cov+'"></div></div><div class="row"><button class="primary" data-act="mapOpen">Choose on map</button><button data-act="import" data-kind="site">Import site</button></div><p class="notice">Choose another site from the list at the top. The limits feed the Site node.</p></div>';
-  if(S.step==='Massing')h='<div class="section"><h3>Masses <span>'+P.masses.length+'</span></h3>'+rows()+'</div><div class="section"><div class="kv">Floor area<b>'+n0(M.gfa)+' m²</b></div><div class="kv">Tallest<b>'+n1(M.tallest)+' m</b></div><div class="kv">Coverage<b>'+n0(M.cov)+'%</b></div>'+
+  if(S.step==='Massing')h='<div class="section"><h3>Masses <span>'+(P.hidden&&P.hidden.length?P.masses.length+' on · '+P.hidden.length+' off':P.masses.length)+' · tallest first</span></h3>'+rows()+'</div><div class="section"><div class="kv">Floor area<b>'+n0(M.gfa)+' m²</b></div><div class="kv">Tallest<b>'+n1(M.tallest)+' m</b></div><div class="kv">Coverage<b>'+n0(M.cov)+'%</b></div>'+
     '<div class="row" style="margin-top:10px"><button data-act="tool" data-t="rect">Draw a mass</button><button class="danger" data-act="clearM">Clear all</button></div></div>'+
     '<div class="section"><h3>Import a model</h3><label class="filein" for="mfile"><span class="fbtn">Choose a .3dm file</span><input type="file" id="mfile" accept=".3dm,.obj,.json" data-ch="mfile"><span class="filename">'+esc(S.mf?S.mf.name:'no file chosen')+'</span></label><p class="io-status'+(S.mf&&S.mf.err?' err':'')+'" id="mfStatus" aria-live="polite">'+esc(S.mf?S.mf.status:'.3dm, .obj or .json. Each layer becomes tower massing or site context.')+'</p>'+(RH&&RH.done&&!RH.live?'<button data-act="mfRoles" style="margin-top:8px;width:100%">Change layer roles</button>':'')+(MCP?'<button data-act="mcAgain" style="margin-top:8px;width:100%">Open the model check</button>':'')+
       '<details class="rlink" id="rlink"'+(LK.open?' open':'')+'><summary><span class="rdot" id="rlinkDot" data-state="'+LK.state+'" aria-hidden="true"></span>Live link to Rhino</summary><p class="notice" style="margin:8px 0">In Rhino, run <b>Sun &amp; Wind Link</b> (sw_link.py). It sets up the layers, checks the model and serves it here; every edit in Rhino re-imports within a second or two.</p>'+
@@ -1891,7 +1905,7 @@ const ACT={
   eyeView:()=>{const B=M.B;addView({name:'Eye level '+(P.views.filter(v=>v.t==='persp').length+1),t:'persp',pos:[B.x0-30,1.6,B.z1+35],look:[B.cx,Math.max(20,M.tallest*.35),B.cz]});applyView(P.views[P.views.length-1])},
   pickAsset:d=>{S.place=S.place===d.k?null:d.k;setTool(S.place?'place':'select');ui();if(S.place)toast((A3D[d.k]||A2D[d.k][0])+': click in the model to place it')},
   dup:()=>{const m=massBy(S.sel.id),c=JSON.parse(JSON.stringify(m));c.id=uid();c.name=m.name+' copy';c.src='drawn';c.pts=c.pts.map(p=>[p[0]+8,p[1]+8]);P.masses.push(c);S.sel={t:'mass',id:c.id};commit('Duplicated')},
-  del:()=>del(),clearM:()=>{if(!P.masses.length)return;P.masses=[];S.sel=null;commit('All masses cleared. Undo brings them back.')},
+  del:()=>del(),clearM:()=>{if(!P.masses.length&&!(P.hidden||[]).length)return;P.masses=[];P.hidden=[];S.sel=null;commit('All masses cleared. Undo brings them back.')},
   step:d=>{S.step=d.s;ui()},
   repClose:()=>{$('#report').hidden=true;$('#report').innerHTML=''},
   repWin:()=>{let w=null;try{w=window.open('','_blank')}catch(e){}if(!w){toast('This viewer does not allow new windows. Use Save as HTML to open the report anywhere.');return}w.document.open();w.document.write(reportDoc(S.rep));w.document.close()},
@@ -1928,7 +1942,9 @@ const ACT={
   gstep:d=>{P.guide.gi=+d.i;if(+d.i<4)S.step=S._ls=GUIDE[+d.i].n;ui()},
   gdo:()=>{const G=P.guide,q=GUIDE[G.gi||0];if(q.t)G.past[G.gi]=true;q.go()},
   gnext:()=>{const G=P.guide;G.past[G.gi||0]=true;G.gi=Math.min(GUIDE.length-1,(G.gi||0)+1);if(G.gi<4)S.step=S._ls=GUIDE[G.gi].n;unsaved();ui()},
-  gfold:()=>{P.guide.closed=!P.guide.closed;ui()},selMass:(d,el,e)=>{if(e.target.tagName==='SELECT')return;S.sel={t:'mass',id:d.id};S.tab.model='Properties';rebuild();ui()},
+  gfold:()=>{P.guide.closed=!P.guide.closed;ui()},massEye:d=>{P.hidden=P.hidden||[];const i=P.masses.findIndex(m=>m.id===d.id);if(i>=0){const m=P.masses.splice(i,1)[0];P.hidden.push(m);if(S.sel&&S.sel.id===d.id)S.sel=null;commit(m.name+' turned off. It is left out of the model and every check.')}else{const j=P.hidden.findIndex(m=>m.id===d.id);if(j<0)return;const m=P.hidden.splice(j,1)[0];P.masses.push(m);commit(m.name+' turned on')}},
+  massDel:d=>{const m=massBy(d.id)||(P.hidden||[]).find(q=>q.id===d.id);if(!m)return;P.masses=P.masses.filter(q=>q.id!==d.id);P.hidden=(P.hidden||[]).filter(q=>q.id!==d.id);if(S.sel&&S.sel.id===d.id)S.sel=null;commit(m.name+' deleted. Undo brings it back.')},
+  selMass:(d,el,e)=>{if(e.target.tagName==='SELECT'||e.target.closest('button'))return;S.sel={t:'mass',id:d.id};S.tab.model='Properties';rebuild();ui()},
   setAll:d=>{const m=S.sel&&S.sel.t==='mass'?massBy(S.sel.id):null;if(m)m[d.k]=d.v;else P.masses.forEach(x=>x[d.k]=d.v);commit()},
   openNodes:(d,el,e)=>{const st=e.target.dataset.src,n=e.target.dataset.node;if(st){S.step=st;ui();return}go('nodes');if(n)openNode(n)},
   palette:()=>palette(),
